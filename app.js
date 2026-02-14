@@ -1,10 +1,8 @@
-// Import Firebase SDKs
+// Import Firebase SDKs (ONLY Firestore, no Auth SDK needed)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, updateDoc, doc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // --- CONFIGURATION ---
-// PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
   apiKey: "AIzaSyDusstJWKBkaabFVole37AETp3krIrUqS4",
   authDomain: "remote-work-2d63d.firebaseapp.com",
@@ -16,16 +14,13 @@ const firebaseConfig = {
   measurementId: "G-3S1TCQPNR8"
 };
 
-
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- STATE MANAGEMENT ---
 let currentUser = null;
-let currentTimerDocId = null; // ID of the active timer document in Firestore
+let currentTimerDocId = null;
 let timerInterval = null;
 
 // --- DOM ELEMENTS ---
@@ -33,45 +28,97 @@ const authContainer = document.getElementById('auth-container');
 const appContainer = document.getElementById('app-container');
 const authForm = document.getElementById('auth-form');
 const userEmailSpan = document.getElementById('user-email');
+const authMessage = document.getElementById('auth-message');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const timerDisplay = document.getElementById('timer-display');
 const historyList = document.getElementById('history-list');
 
-// --- AUTHENTICATION ---
-
-// Listen for Auth State Changes
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        currentUser = user;
-        showApp();
-        checkForActiveTimer();
-        loadHistory();
+// --- INITIALIZATION ---
+// Check LocalStorage on page load to see if user is already "logged in"
+window.addEventListener('DOMContentLoaded', () => {
+    const storedUser = localStorage.getItem('remote_timer_user');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        initializeSession();
     } else {
-        currentUser = null;
         showLogin();
     }
 });
 
+// --- CUSTOM AUTHENTICATION (DATABASE BASED) ---
+
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('email').value;
+    const email = document.getElementById('email').value.toLowerCase().trim();
     const password = document.getElementById('password').value;
+    const btn = document.getElementById('auth-btn');
+
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    authMessage.textContent = "";
 
     try {
-        // Try to Login
-        await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-        // If user not found, try to Register
-        try {
-            await createUserWithEmailAndPassword(auth, email, password);
-        } catch (regError) {
-            alert(regError.message);
+        // 1. Check if user exists in the 'users' collection
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", email));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            // --- REGISTER NEW USER ---
+            // If email doesn't exist, we create it (Register)
+            const newUser = {
+                email: email,
+                password: password, // Storing plain text (Only for prototype!)
+                createdAt: serverTimestamp()
+            };
+            
+            const docRef = await addDoc(usersRef, newUser);
+            
+            currentUser = { id: docRef.id, email: email };
+            saveUserAndStart(currentUser);
+            alert("Account created successfully!");
+        } else {
+            // --- LOGIN EXISTING USER ---
+            // User exists, check password
+            const userDoc = querySnapshot.docs[0];
+            const userData = userDoc.data();
+
+            if (userData.password === password) {
+                currentUser = { id: userDoc.id, email: userData.email };
+                saveUserAndStart(currentUser);
+            } else {
+                authMessage.textContent = "Incorrect password.";
+                authMessage.style.color = "red";
+                btn.disabled = false;
+                btn.textContent = "Login / Register";
+            }
         }
+    } catch (error) {
+        console.error("Auth Error", error);
+        authMessage.textContent = "Connection failed. Check console.";
+        btn.disabled = false;
+        btn.textContent = "Login / Register";
     }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('remote_timer_user');
+    currentUser = null;
+    currentTimerDocId = null;
+    showLogin();
+});
+
+function saveUserAndStart(userObj) {
+    localStorage.setItem('remote_timer_user', JSON.stringify(userObj));
+    initializeSession();
+}
+
+function initializeSession() {
+    showApp();
+    checkForActiveTimer();
+    loadHistory();
+}
 
 function showApp() {
     authContainer.classList.add('hidden');
@@ -83,6 +130,8 @@ function showLogin() {
     authContainer.classList.remove('hidden');
     appContainer.classList.add('hidden');
     clearInterval(timerInterval);
+    document.getElementById('auth-btn').textContent = "Login / Register";
+    document.getElementById('auth-btn').disabled = false;
 }
 
 // --- TIMER LOGIC ---
@@ -92,11 +141,12 @@ startBtn.addEventListener('click', async () => {
     try {
         // Create a new document in 'timelogs'
         const docRef = await addDoc(collection(db, "timelogs"), {
-            uid: currentUser.uid,
+            userId: currentUser.id, // Using our custom ID, not Auth UID
+            userEmail: currentUser.email,
             startTime: serverTimestamp(),
             endTime: null,
             status: 'running',
-            date: new Date().toISOString().split('T')[0] // For easier querying
+            date: new Date().toISOString().split('T')[0]
         });
         
         currentTimerDocId = docRef.id;
@@ -114,9 +164,6 @@ stopBtn.addEventListener('click', async () => {
     try {
         const logRef = doc(db, "timelogs", currentTimerDocId);
         
-        // Update document with end time and calculate duration
-        // Note: Real duration calculation should happen on backend or carefully here
-        // For static, we grab the visual difference roughly, but Firestore serverTimestamp is truth
         await updateDoc(logRef, {
             endTime: serverTimestamp(),
             status: 'completed'
@@ -135,7 +182,7 @@ stopBtn.addEventListener('click', async () => {
 async function checkForActiveTimer() {
     const q = query(
         collection(db, "timelogs"),
-        where("uid", "==", currentUser.uid),
+        where("userId", "==", currentUser.id),
         where("status", "==", "running")
     );
 
@@ -143,9 +190,12 @@ async function checkForActiveTimer() {
     if (!querySnapshot.empty) {
         const doc = querySnapshot.docs[0];
         currentTimerDocId = doc.id;
-        // Firebase timestamps need conversion
-        const start = doc.data().startTime.toDate().getTime(); 
-        toggleTimerUI(true, start);
+        // Handle null startTime slightly gracefully if latency occurs
+        const data = doc.data();
+        if(data.startTime) {
+            const start = data.startTime.toDate().getTime(); 
+            toggleTimerUI(true, start);
+        }
     } else {
         toggleTimerUI(false);
     }
@@ -156,9 +206,8 @@ function toggleTimerUI(isRunning, startTime = null) {
         startBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
         document.getElementById('status-msg').textContent = "Work in progress...";
-        startBtn.disabled = false; // Reset for next time
+        startBtn.disabled = false; 
 
-        // Start counting visually
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             const now = Date.now();
@@ -179,11 +228,10 @@ function toggleTimerUI(isRunning, startTime = null) {
 function loadHistory() {
     const q = query(
         collection(db, "timelogs"),
-        where("uid", "==", currentUser.uid),
+        where("userId", "==", currentUser.id),
         orderBy("startTime", "desc")
     );
 
-    // Real-time listener
     onSnapshot(q, (snapshot) => {
         historyList.innerHTML = '';
         let todayTotal = 0;
@@ -200,19 +248,16 @@ function loadHistory() {
                 const end = data.endTime.toDate();
                 const durationMs = end - start;
 
-                // Calculate Stats
-                // 1. Today
                 if (data.date === todayStr) {
                     todayTotal += durationMs;
                 }
-                // 2. Simple "This Week" (last 7 days approx for simplicity)
+                
                 const oneWeekAgo = new Date();
                 oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
                 if (start > oneWeekAgo) {
                     weekTotal += durationMs;
                 }
 
-                // Render List Item
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <span>${start.toLocaleDateString()} ${start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
@@ -222,7 +267,6 @@ function loadHistory() {
             }
         });
 
-        // Update Stats UI
         document.getElementById('stat-today').textContent = formatStats(todayTotal);
         document.getElementById('stat-week').textContent = formatStats(weekTotal);
         document.getElementById('stat-total-logs').textContent = totalLogs;
@@ -231,6 +275,7 @@ function loadHistory() {
 
 // Helper: Format milliseconds to HH:MM:SS
 function formatTime(ms) {
+    if(ms < 0) ms = 0;
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -238,7 +283,6 @@ function formatTime(ms) {
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-// Helper: Format stats like "2h 30m"
 function formatStats(ms) {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
