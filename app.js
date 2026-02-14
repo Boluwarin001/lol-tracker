@@ -6,14 +6,17 @@ import { getFirestore, collection, addDoc, updateDoc, doc, query, where, orderBy
 // --- CONFIGURATION ---
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-  apiKey: "AIzaSyBjQUyCQhzs9mFuGUQBYyNcxVj0O94zhOs",
-  authDomain: "lol-tracker-94b83.firebaseapp.com",
-  projectId: "lol-tracker-94b83",
-  storageBucket: "lol-tracker-94b83.firebasestorage.app",
-  messagingSenderId: "79209751343",
-  appId: "1:79209751343:web:27e62c2b37dea8bdfef7da",
-  measurementId: "G-6J1X45F0ND"
+  apiKey: "AIzaSyDusstJWKBkaabFVole37AETp3krIrUqS4",
+  authDomain: "remote-work-2d63d.firebaseapp.com",
+  databaseURL: "https://remote-work-2d63d-default-rtdb.firebaseio.com",
+  projectId: "remote-work-2d63d",
+  storageBucket: "remote-work-2d63d.firebasestorage.app",
+  messagingSenderId: "206255046290",
+  appId: "1:206255046290:web:d4dc8e1ad252fd54e9304b",
+  measurementId: "G-3S1TCQPNR8"
 };
+
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -245,5 +248,4 @@ function formatStats(ms) {
 
 function pad(num) {
     return num.toString().padStart(2, '0');
-
 }
