@@ -97,3 +97,35 @@ button:hover { opacity: 0.9; }
     display: flex;
     justify-content: space-between;
 }
+
+
+
+/* ... Your existing CSS ... */
+
+/* Admin Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+.action-btn {
+    background-color: #2ecc71;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+}

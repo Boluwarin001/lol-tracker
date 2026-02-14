@@ -21,11 +21,15 @@
         </div>
     </div>
 
-    <!-- SECTION: DASHBOARD (Hidden by default) -->
+    <!-- SECTION: USER DASHBOARD -->
     <div id="app-container" class="hidden">
         <header>
             <h3>👋 <span id="user-email"></span></h3>
-            <button id="logout-btn">Logout</button>
+            <div>
+                <!-- Admin Button (Hidden by default) -->
+                <button id="admin-btn" class="hidden" style="background-color: #8e44ad; margin-right: 10px;">Admin Panel</button>
+                <button id="logout-btn">Logout</button>
+            </div>
         </header>
 
         <div class="main-content">
@@ -59,10 +63,40 @@
             <!-- Recent History -->
             <div class="card">
                 <h3>Recent History</h3>
-                <ul id="history-list">
-                    <!-- Logs will be injected here -->
-                </ul>
+                <ul id="history-list"></ul>
             </div>
+        </div>
+    </div>
+
+    <!-- SECTION: ADMIN DASHBOARD (New) -->
+    <div id="admin-container" class="hidden">
+        <header>
+            <h3>🛡️ Admin Dashboard</h3>
+            <button id="close-admin-btn">Back to Timer</button>
+        </header>
+
+        <div class="card">
+            <h3>Registered Employees</h3>
+            <div style="overflow-x: auto;">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Password</th>
+                            <th>Joined</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- Users go here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="admin-user-detail" class="hidden card">
+            <h3>Log History for: <span id="admin-view-email"></span></h3>
+            <ul id="admin-user-history"></ul>
         </div>
     </div>
 

@@ -1,4 +1,4 @@
-// Import Firebase SDKs (ONLY Firestore, no Auth SDK needed)
+// Import Firebase SDKs
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, updateDoc, doc, query, where, orderBy, onSnapshot, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -14,6 +14,10 @@ const firebaseConfig = {
   measurementId: "G-3S1TCQPNR8"
 };
 
+// --- ADMIN CONFIG ---
+// CHANGE THIS TO YOUR DESIRED ADMIN EMAIL
+const ADMIN_EMAIL = "boluadediran@gmail.com"; 
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -26,6 +30,8 @@ let timerInterval = null;
 // --- DOM ELEMENTS ---
 const authContainer = document.getElementById('auth-container');
 const appContainer = document.getElementById('app-container');
+const adminContainer = document.getElementById('admin-container'); // NEW
+
 const authForm = document.getElementById('auth-form');
 const userEmailSpan = document.getElementById('user-email');
 const authMessage = document.getElementById('auth-message');
@@ -34,8 +40,15 @@ const stopBtn = document.getElementById('stop-btn');
 const timerDisplay = document.getElementById('timer-display');
 const historyList = document.getElementById('history-list');
 
+// Admin Elements
+const adminBtn = document.getElementById('admin-btn');
+const closeAdminBtn = document.getElementById('close-admin-btn');
+const usersTableBody = document.getElementById('users-table-body');
+const adminUserDetail = document.getElementById('admin-user-detail');
+const adminUserHistory = document.getElementById('admin-user-history');
+const adminViewEmail = document.getElementById('admin-view-email');
+
 // --- INITIALIZATION ---
-// Check LocalStorage on page load to see if user is already "logged in"
 window.addEventListener('DOMContentLoaded', () => {
     const storedUser = localStorage.getItem('remote_timer_user');
     if (storedUser) {
@@ -46,8 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- CUSTOM AUTHENTICATION (DATABASE BASED) ---
-
+// --- AUTHENTICATION ---
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value.toLowerCase().trim();
@@ -59,31 +71,25 @@ authForm.addEventListener('submit', async (e) => {
     authMessage.textContent = "";
 
     try {
-        // 1. Check if user exists in the 'users' collection
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", email));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            // --- REGISTER NEW USER ---
-            // If email doesn't exist, we create it (Register)
+            // Register
             const newUser = {
                 email: email,
-                password: password, // Storing plain text (Only for prototype!)
+                password: password,
                 createdAt: serverTimestamp()
             };
-            
             const docRef = await addDoc(usersRef, newUser);
-            
             currentUser = { id: docRef.id, email: email };
             saveUserAndStart(currentUser);
             alert("Account created successfully!");
         } else {
-            // --- LOGIN EXISTING USER ---
-            // User exists, check password
+            // Login
             const userDoc = querySnapshot.docs[0];
             const userData = userDoc.data();
-
             if (userData.password === password) {
                 currentUser = { id: userDoc.id, email: userData.email };
                 saveUserAndStart(currentUser);
@@ -96,7 +102,7 @@ authForm.addEventListener('submit', async (e) => {
         }
     } catch (error) {
         console.error("Auth Error", error);
-        authMessage.textContent = "Connection failed. Check console.";
+        authMessage.textContent = "Connection failed.";
         btn.disabled = false;
         btn.textContent = "Login / Register";
     }
@@ -118,83 +124,188 @@ function initializeSession() {
     showApp();
     checkForActiveTimer();
     loadHistory();
+    
+    // Check if Admin
+    if (currentUser.email === ADMIN_EMAIL) {
+        adminBtn.classList.remove('hidden');
+    } else {
+        adminBtn.classList.add('hidden');
+    }
 }
 
 function showApp() {
     authContainer.classList.add('hidden');
     appContainer.classList.remove('hidden');
+    adminContainer.classList.add('hidden');
     userEmailSpan.textContent = currentUser.email;
 }
 
 function showLogin() {
     authContainer.classList.remove('hidden');
     appContainer.classList.add('hidden');
+    adminContainer.classList.add('hidden');
     clearInterval(timerInterval);
     document.getElementById('auth-btn').textContent = "Login / Register";
     document.getElementById('auth-btn').disabled = false;
 }
 
-// --- TIMER LOGIC ---
+// --- ADMIN LOGIC ---
+
+adminBtn.addEventListener('click', () => {
+    appContainer.classList.add('hidden');
+    adminContainer.classList.remove('hidden');
+    loadAllUsers();
+});
+
+closeAdminBtn.addEventListener('click', () => {
+    adminContainer.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+});
+
+async function loadAllUsers() {
+    usersTableBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+    
+    try {
+        const querySnapshot = await getDocs(collection(db, "users"));
+        usersTableBody.innerHTML = '';
+        
+        querySnapshot.forEach((doc) => {
+            const user = doc.data();
+            const tr = document.createElement('tr');
+            
+            // Format Date
+            let joinedDate = "Unknown";
+            if(user.createdAt) joinedDate = user.createdAt.toDate().toLocaleDateString();
+
+            tr.innerHTML = `
+                <td>${user.email}</td>
+                <td>${user.password}</td>
+                <td>${joinedDate}</td>
+                <td><button class="action-btn" data-id="${doc.id}" data-email="${user.email}">View Logs</button></td>
+            `;
+            usersTableBody.appendChild(tr);
+        });
+
+        // Add listeners to new buttons
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const uid = e.target.getAttribute('data-id');
+                const email = e.target.getAttribute('data-email');
+                loadUserLogs(uid, email);
+            });
+        });
+
+    } catch (error) {
+        console.error("Admin Error:", error);
+        usersTableBody.innerHTML = '<tr><td colspan="4">Error loading users.</td></tr>';
+    }
+}
+
+async function loadUserLogs(targetUid, targetEmail) {
+    adminUserDetail.classList.remove('hidden');
+    adminViewEmail.textContent = targetEmail;
+    adminUserHistory.innerHTML = '<li>Loading...</li>';
+
+    // Note: This requires an index usually, but we try a simple query first
+    const q = query(
+        collection(db, "timelogs"),
+        where("userId", "==", targetUid),
+        orderBy("startTime", "desc")
+    );
+
+    try {
+        const snapshot = await getDocs(q);
+        adminUserHistory.innerHTML = '';
+
+        if(snapshot.empty) {
+            adminUserHistory.innerHTML = '<li>No logs found for this user.</li>';
+            return;
+        }
+
+        let totalDuration = 0;
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if(data.status === 'completed' && data.startTime && data.endTime) {
+                const start = data.startTime.toDate();
+                const end = data.endTime.toDate();
+                const duration = end - start;
+                totalDuration += duration;
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${start.toLocaleDateString()} ${start.toLocaleTimeString()}</span>
+                    <strong>${formatTime(duration)}</strong>
+                `;
+                adminUserHistory.appendChild(li);
+            }
+        });
+
+        // Add total at the top
+        const totalLi = document.createElement('li');
+        totalLi.style.background = "#e1f5fe";
+        totalLi.innerHTML = `<span><strong>TOTAL TIME TRACKED:</strong></span> <strong>${formatStats(totalDuration)}</strong>`;
+        adminUserHistory.prepend(totalLi);
+
+    } catch (error) {
+        console.error(error);
+        adminUserHistory.innerHTML = `<li style="color:red">Error: ${error.message}</li>`;
+    }
+}
+
+
+// --- TIMER LOGIC (Existing) ---
 
 startBtn.addEventListener('click', async () => {
     startBtn.disabled = true;
     try {
-        // Create a new document in 'timelogs'
         const docRef = await addDoc(collection(db, "timelogs"), {
-            userId: currentUser.id, // Using our custom ID, not Auth UID
+            userId: currentUser.id,
             userEmail: currentUser.email,
             startTime: serverTimestamp(),
             endTime: null,
             status: 'running',
             date: new Date().toISOString().split('T')[0]
         });
-        
         currentTimerDocId = docRef.id;
         toggleTimerUI(true, Date.now());
     } catch (error) {
-        console.error("Error starting timer:", error);
+        console.error("Error starting:", error);
         startBtn.disabled = false;
     }
 });
 
 stopBtn.addEventListener('click', async () => {
     if (!currentTimerDocId) return;
-    
     stopBtn.disabled = true;
     try {
         const logRef = doc(db, "timelogs", currentTimerDocId);
-        
         await updateDoc(logRef, {
             endTime: serverTimestamp(),
             status: 'completed'
         });
-
         toggleTimerUI(false);
         currentTimerDocId = null;
     } catch (error) {
-        console.error("Error stopping timer:", error);
+        console.error("Error stopping:", error);
     } finally {
         stopBtn.disabled = false;
     }
 });
 
-// Check if user refreshed page while timer was running
 async function checkForActiveTimer() {
     const q = query(
         collection(db, "timelogs"),
         where("userId", "==", currentUser.id),
         where("status", "==", "running")
     );
-
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
         const doc = querySnapshot.docs[0];
         currentTimerDocId = doc.id;
-        // Handle null startTime slightly gracefully if latency occurs
         const data = doc.data();
         if(data.startTime) {
-            const start = data.startTime.toDate().getTime(); 
-            toggleTimerUI(true, start);
+            toggleTimerUI(true, data.startTime.toDate().getTime());
         }
     } else {
         toggleTimerUI(false);
@@ -206,12 +317,10 @@ function toggleTimerUI(isRunning, startTime = null) {
         startBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
         document.getElementById('status-msg').textContent = "Work in progress...";
-        startBtn.disabled = false; 
-
+        startBtn.disabled = false;
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
-            const now = Date.now();
-            const diff = now - startTime;
+            const diff = Date.now() - startTime;
             timerDisplay.textContent = formatTime(diff);
         }, 1000);
     } else {
@@ -223,8 +332,7 @@ function toggleTimerUI(isRunning, startTime = null) {
     }
 }
 
-// --- DASHBOARD & STATS ---
-
+// --- USER HISTORY (Existing) ---
 function loadHistory() {
     const q = query(
         collection(db, "timelogs"),
@@ -237,59 +345,48 @@ function loadHistory() {
         let todayTotal = 0;
         let weekTotal = 0;
         let totalLogs = 0;
-        
         const todayStr = new Date().toISOString().split('T')[0];
 
         snapshot.forEach((doc) => {
             const data = doc.data();
             if (data.status === 'completed' && data.startTime && data.endTime) {
                 totalLogs++;
-                const start = data.startTime.toDate();
-                const end = data.endTime.toDate();
-                const durationMs = end - start;
-
-                if (data.date === todayStr) {
-                    todayTotal += durationMs;
-                }
+                const duration = data.endTime.toDate() - data.startTime.toDate();
+                if (data.date === todayStr) todayTotal += duration;
                 
                 const oneWeekAgo = new Date();
                 oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                if (start > oneWeekAgo) {
-                    weekTotal += durationMs;
-                }
+                if (data.startTime.toDate() > oneWeekAgo) weekTotal += duration;
 
                 const li = document.createElement('li');
                 li.innerHTML = `
-                    <span>${start.toLocaleDateString()} ${start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    <strong>${formatTime(durationMs)}</strong>
+                    <span>${data.startTime.toDate().toLocaleDateString()}</span>
+                    <strong>${formatTime(duration)}</strong>
                 `;
                 historyList.appendChild(li);
             }
         });
-
         document.getElementById('stat-today').textContent = formatStats(todayTotal);
         document.getElementById('stat-week').textContent = formatStats(weekTotal);
         document.getElementById('stat-total-logs').textContent = totalLogs;
     });
 }
 
-// Helper: Format milliseconds to HH:MM:SS
+// Helpers
 function formatTime(ms) {
     if(ms < 0) ms = 0;
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 function formatStats(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${h}h ${m}m`;
 }
 
-function pad(num) {
-    return num.toString().padStart(2, '0');
-}
+function pad(n) { return n.toString().padStart(2, '0'); }
