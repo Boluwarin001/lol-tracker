@@ -6,12 +6,13 @@ import { getFirestore, collection, addDoc, updateDoc, doc, query, where, orderBy
 // --- CONFIGURATION ---
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "your-project.firebaseapp.com",
-    projectId: "your-project",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
+  apiKey: "AIzaSyBjQUyCQhzs9mFuGUQBYyNcxVj0O94zhOs",
+  authDomain: "lol-tracker-94b83.firebaseapp.com",
+  projectId: "lol-tracker-94b83",
+  storageBucket: "lol-tracker-94b83.firebasestorage.app",
+  messagingSenderId: "79209751343",
+  appId: "1:79209751343:web:27e62c2b37dea8bdfef7da",
+  measurementId: "G-6J1X45F0ND"
 };
 
 // Initialize Firebase
@@ -244,4 +245,5 @@ function formatStats(ms) {
 
 function pad(num) {
     return num.toString().padStart(2, '0');
+
 }
