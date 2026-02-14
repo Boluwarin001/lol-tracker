@@ -5,29 +5,16 @@ import { getFirestore, collection, addDoc, updateDoc, doc, query, where, orderBy
 
 // --- CONFIGURATION ---
 // PASTE YOUR FIREBASE CONFIG HERE
-// const firebaseConfig = {
-//   apiKey: "AIzaSyDusstJWKBkaabFVole37AETp3krIrUqS4",
-//   authDomain: "remote-work-2d63d.firebaseapp.com",
-//   databaseURL: "https://remote-work-2d63d-default-rtdb.firebaseio.com",
-//   projectId: "remote-work-2d63d",
-//   storageBucket: "remote-work-2d63d.firebasestorage.app",
-//   messagingSenderId: "206255046290",
-//   appId: "1:206255046290:web:d4dc8e1ad252fd54e9304b",
-//   measurementId: "G-3S1TCQPNR8"
-// };
-
-
 const firebaseConfig = {
-  apiKey: "AIzaSyDbdnwzFoOXcvz0SEhDLPKLC6nzgcNoEvA",
-  authDomain: "questions-9d203.firebaseapp.com",
-  databaseURL: "https://questions-9d203-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "questions-9d203",
-  storageBucket: "questions-9d203.firebasestorage.app",
-  messagingSenderId: "367649057882",
-  appId: "1:367649057882:web:beb5d05916764254227c63",
-  measurementId: "G-VC1R07DTLY"
+  apiKey: "AIzaSyDusstJWKBkaabFVole37AETp3krIrUqS4",
+  authDomain: "remote-work-2d63d.firebaseapp.com",
+  databaseURL: "https://remote-work-2d63d-default-rtdb.firebaseio.com",
+  projectId: "remote-work-2d63d",
+  storageBucket: "remote-work-2d63d.firebasestorage.app",
+  messagingSenderId: "206255046290",
+  appId: "1:206255046290:web:d4dc8e1ad252fd54e9304b",
+  measurementId: "G-3S1TCQPNR8"
 };
-
 
 
 
