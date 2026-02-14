@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Work Timer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- SECTION: AUTH (Login/Register) -->
+    <div id="auth-container">
+        <div class="card">
+            <h2>Time Tracker Login</h2>
+            <form id="auth-form">
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit" id="auth-btn">Login / Register</button>
+            </form>
+            <p id="auth-message"></p>
+        </div>
+    </div>
+
+    <!-- SECTION: DASHBOARD (Hidden by default) -->
+    <div id="app-container" class="hidden">
+        <header>
+            <h3>👋 <span id="user-email"></span></h3>
+            <button id="logout-btn">Logout</button>
+        </header>
+
+        <div class="main-content">
+            <!-- Timer Section -->
+            <div class="card timer-card">
+                <h2>Current Session</h2>
+                <div id="timer-display">00:00:00</div>
+                <div class="controls">
+                    <button id="start-btn">Start Work</button>
+                    <button id="stop-btn" class="hidden" style="background-color: #e74c3c;">Stop Work</button>
+                </div>
+                <p id="status-msg">Ready to work?</p>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats-grid">
+                <div class="card">
+                    <h3>Today</h3>
+                    <p id="stat-today">0h 0m</p>
+                </div>
+                <div class="card">
+                    <h3>This Week</h3>
+                    <p id="stat-week">0h 0m</p>
+                </div>
+                <div class="card">
+                    <h3>Total Logs</h3>
+                    <p id="stat-total-logs">0</p>
+                </div>
+            </div>
+
+            <!-- Recent History -->
+            <div class="card">
+                <h3>Recent History</h3>
+                <ul id="history-list">
+                    <!-- Logs will be injected here -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Firebase via Module -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
